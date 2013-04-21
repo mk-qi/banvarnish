@@ -9,26 +9,19 @@ require 'socket'
 require 'digest'
 require 'uri/http'
 
-class VarnishAdminSocket
-  # Default management port of varnishd
-  DEFAULT_PORT = 6082
 
-  # We assume varnishd on localhost
-  DEFAULT_HOST = '127.0.0.1'
+class VarnishBanSocket
   
-  def initialize(host,port=6082,secret=nil)
-    @port = DEFAULT_PORT.to_i
-    @host = host || DEFAULT_HOST
+  def initialize(host='127.0.0.1',port=6082,secret=nil)
+    @port = port
+    @host = host 
     @secret = secret
     @debug = nil
   end
   
-  
   def connect(host,port)
     begin
       socket = TCPSocket.new(@host, @port) 
-      print("addr: ", socket.addr.join(":"), "\n")  if @debug
-      print("peer: ", socket.peeraddr.join(":"), "\n") if @debug
     rescue Exception => e
        puts "Exception rescued : #{e}"
     ensure
@@ -38,30 +31,27 @@ class VarnishAdminSocket
   end
   
   def disconnect
-    !!@socket.close  if @socket
+    @socket.close  if @socket
   end
   
   def on_connect
-    connect @host,@port
+    connect @host,@port if ! @connected
   end
   
   def cmd(name, *params)
       on_connect
-      status, length = @socket.gets.split # <status> <content_length>\n 
+      status, length = @socket.gets.split 
+      # authentication to login varnishadmin
       if  status == '107'
         challenge = @socket.read(length.to_i + 1).split("\n")[0]
-        puts challenge if @debug 
         auth_response = Digest::SHA256.hexdigest(challenge + "\n" + @secret + challenge + "\n")
-        puts auth_response if @debug
         @socket.write "auth #{auth_response}\n"
-        status, length = @socket.gets.split # <status> <content_length>\n 
-        content = @socket.read(length.to_i + 1) # +1 = \n 
-        puts content if @debug
-        puts  status if @debug
+        status, length = @socket.gets.split 
+        content = @socket.read(length.to_i + 1) 
         raise  "status #{status}: #{content}" if status.to_i != 200
       end
       @socket.write "#{name} #{params.join(' ').gsub('\\', '\\\\\\')}\n"
-      status, length = @socket.gets.split # <status> <content_length>\n 
+      status, length = @socket.gets.split  
       content = @socket.read(length.to_i + 1) # +1 = \n
       content
   end
@@ -69,7 +59,7 @@ class VarnishAdminSocket
 
   def ban(*args)
     c = 'ban'
-    c << ".#{args.shift}" if [:url, :hash, :list].include?(args.first)
+    c << ".#{args.shift}" if [:url, :list].include?(args.first)
     response = cmd(c, *args)
     case c
     when 'ban.list'
@@ -94,18 +84,11 @@ class VarnishAdminSocket
         raise  "argv error"
      end
   end
-
-  def status
-    cmd 'status'
-  end
-  
-  def help
-    cmd 'help'
-  end
- 
 end
 
 
+
+# ban app
 
 before do
   content_type "text/html", :charset => "utf-8"
@@ -126,7 +109,7 @@ def getban(url,fod)
   @value[1]
 end
 
-
+# routes for web interface
 get '/' do
   redirect '/login' unless session[:currentuser]
   haml :home
@@ -142,7 +125,7 @@ get '/logout' do
 end
 
 post '/login' do
-  if params[:name] == 'mk' and    params[:passwd] == 'abcdefg'
+  if params[:name] == 'admin' and    params[:passwd] == 'admin'
     session[:currentuser] = 'mk'
     redirect '/'
   else
@@ -150,7 +133,7 @@ post '/login' do
   end
 end
 
-post '/home' do
+get '/home' do
   haml :home
 end
 
@@ -158,7 +141,20 @@ post '/purge' do
   haml :purge
 end
     
+# routes for api
 
+post '/home' do
+  if params[:username] == 'admin' && params[:password] == 'admin'
+    if  params[:url] && params[:fod]
+        return  getban("#{params[:url]}","#{params[:fod]}")
+    else
+       return "Two params need."
+    end
+  else
+       return "Wront username or password"
+  end
+  puts "#{params[:username]} + #{params[:password]} + #{params[:url] } + #{params[:fod]}"
+end
 
 __END__
 @@ layout
