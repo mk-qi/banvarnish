@@ -2,10 +2,10 @@ banvarnish
 ==========
 ruby,sinatra,haml 写的一个varniah admin port 来清缓存的小工具
 ####功能
- 1.可清目录和单个url
- 2.支持varnih管理密码
- 3.可一次清理多台varnish 
- 4.可通过api的方式使用
+ 1. 可清目录和单个url
+ 2. 支持varnih管理密码
+ 3. 可一次清理多台varnish 
+ 4. 可通过api的方式使用
 
 #### 继续改进的功能
  1. 支持多用户
