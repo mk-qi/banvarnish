@@ -16,8 +16,8 @@ ruby,sinatra,haml 写的一个varniah admin port 来清缓存的小工具
  1.sudo gem install sinatra haml
  2.git clone https://github.com/mk-qi/banvarnish
  3. ruby  varnishsocketsban.rb
- 4. 
-### 使用
+ 
+#### 使用
   
   
  
